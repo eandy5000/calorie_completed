@@ -1,126 +1,131 @@
 import * as R from "ramda";
+
 const MSG = {
   TOGGLE_FORM: "TOGGLE_FORM",
+  SAVE_MEAL: "SAVE_MEAL",
   MEAL_INPUT: "MEAL_INPUT",
   CALORIES_INPUT: "CALORIES_INPUT",
-  SAVE_MEAL: "SAVE_MEAL",
   DELETE_MEAL: "DELETE_MEAL",
-  EDIT_ID: "EDIT_ID"
+  EDIT_MEAL: "EDIT_MEAL"
 };
 
 export const saveMealMsg = { type: MSG.SAVE_MEAL };
 
-export function editMealMsg(editId) {
+export function editMealMsg(editMeal) {
   return {
-    type: MSG.EDIT_ID,
-    editId
+    type: MSG.EDIT_MEAL,
+    editMeal
   };
 }
 
-export function deleteMealMsg(id) {
+export function deleteMealMsg(deleteId) {
   return {
     type: MSG.DELETE_MEAL,
-    id
+    deleteId
   };
 }
 
-export function toggleFormMsg(showForm) {
-  return {
-    type: MSG.TOGGLE_FORM,
-    showForm
-  };
-}
-
-export function mealUpdateMsg(description) {
-  return {
-    type: MSG.MEAL_INPUT,
-    description
-  };
-}
-
-export function caloriesUpdateMsg(calories) {
+export function caloriesInputMsg(calories) {
   return {
     type: MSG.CALORIES_INPUT,
     calories
   };
 }
 
+export function mealInputMsg(description) {
+  return {
+    type: MSG.MEAL_INPUT,
+    description
+  };
+}
+
+export function toggleFormMsg(showingForm) {
+  return {
+    type: MSG.TOGGLE_FORM,
+    showForm: showingForm
+  };
+}
+
 export default function update(msg, model) {
-  const { showForm, description, calories, id, editId } = msg;
   switch (msg.type) {
     case MSG.TOGGLE_FORM:
-      return { ...model, showForm, description: "", calories: 0 };
-    case MSG.MEAL_INPUT:
-      return { ...model, description };
-    case MSG.CALORIES_INPUT:
-      return { ...model, calories };
+      return { ...model, showForm: msg.showForm };
     case MSG.SAVE_MEAL:
-      const updateModel = model.editId !== null ? edit(msg, model) : add(model);
-      return updateModel;
+      const addOrEdit = model.editId === null ? add(model) : edit(model, msg);
+      return addOrEdit;
+    case MSG.MEAL_INPUT:
+      return { ...model, description: msg.description };
+    case MSG.CALORIES_INPUT:
+      return { ...model, calories: msg.calories };
     case MSG.DELETE_MEAL:
-      const meals = R.filter(meal => meal.id !== id, model.meals);
-      return { ...model, meals };
-    case MSG.EDIT_ID:
-      const editMeal = R.find(meal => meal.id === editId, model.meals);
+      const deleteArr = R.filter(meal => meal.id !== msg.deleteId, model.meals);
       return {
         ...model,
-        showForm: true,
-        description: editMeal.description,
-        calories: editMeal.calories,
-        editId
+        meals: deleteArr
+      };
+    case MSG.EDIT_MEAL:
+      return {
+        ...model,
+        description: msg.editMeal.description,
+        calories: msg.editMeal.calories,
+        editId: msg.editMeal.id,
+        showForm: true
       };
     default:
       return model;
   }
 }
 
+//update helper functions
 function add(model) {
-  console.log("add");
-  const { description, calories, nextId, id } = model;
   const meal = {
-    id: nextId,
-    description: validDescription(description),
-    calories: validCalories(calories)
+    id: model.nextId,
+    description: validDescription(model.description),
+    calories: validCalories(model.calories)
   };
+
   const meals = [...model.meals, meal];
+
   return {
     ...model,
     meals,
-    nextId: nextId + 1,
     description: "",
     calories: 0,
+    nextId: model.nextId + 1,
     showForm: false
   };
 }
 
-function edit(msg, model) {
-  console.log("edit");
-  const { description, calories, editId } = model;
-  const meals = R.map(meal => {
-    if (meal.id === editId) {
-      return { ...meal, description, calories };
+function edit(model, msg) {
+  const editedMeals = R.map(meal => {
+    const changedMeal = {
+      id: model.editId,
+      description: validDescription(model.description),
+      calories: validCalories(model.calories)
+    };
+    if (meal.id === model.editId) {
+      return changedMeal;
     }
     return meal;
   }, model.meals);
 
   return {
     ...model,
-    showForm: false,
-    meals,
+    meals: editedMeals,
     editId: null,
+    showForm: false,
     calories: 0,
     description: ""
   };
 }
 
-function validDescription(text) {
-  if (!text) {
+function validDescription(input) {
+  if (!input) {
     return "unspecified";
   }
-  return text;
+  return input;
 }
 
-function validCalories(calorieEntry) {
-  const validEntry = R.pipe(parseInt, R.defaultTo(0))(calorieEntry);
-  return validEntry;
+function validCalories(cal) {
+  return R.pipe(parseInt, R.defaultTo(0))(cal);
 }

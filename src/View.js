@@ -1,12 +1,12 @@
 import * as R from "ramda";
 import hh from "hyperscript-helpers";
 import { h } from "virtual-dom";
-import initModel from "./Model";
+import createElement from "virtual-dom/create-element";
 import {
   toggleFormMsg,
-  mealUpdateMsg,
-  caloriesUpdateMsg,
   saveMealMsg,
+  mealInputMsg,
+  caloriesInputMsg,
   deleteMealMsg,
   editMealMsg
 } from "./Update";
@@ -16,136 +16,134 @@ const {
   div,
   h1,
   button,
-  form,
   label,
   input,
   table,
-  th,
-  tr,
-  td,
-  tbody,
   thead,
-  a
+  tbody,
+  th,
+  td,
+  tr,
+  a,
+  p
 } = hh(h);
 
-const header = h1({ className: "bb" }, "Calories");
+export default function view(model, dispatch) {
+  const Header = h1({ className: "bb" }, "Calorie Counting App");
 
-function mealForm(model, dispatch, validation) {
-  return form([
-    div({ className: "mv2" }, [
-      label({ className: "pr2" }, "meal:"),
-      input({
-        oninput: e => dispatch(mealUpdateMsg(e.target.value)),
-        type: "text",
-        className: "br2",
-        value: model.description
-      })
-    ]),
-    div({ className: "mv2" }, [
-      label({ className: "pr2" }, "calories:"),
-      input({
-        oninput: e => dispatch(caloriesUpdateMsg(e.target.value)),
-        type: "text",
-        className: "br2",
-        value: model.calories
-      })
-    ]),
-    div([
-      button(
-        {
-          onclick: e => {
-            e.preventDefault();
-            dispatch(saveMealMsg);
-          },
-          className: "pa2 dim mh2 white bg-green bn br2"
-        },
-        "save"
-      ),
+  function seeModel(model) {
+    return pre(JSON.stringify(model, null, 2));
+  }
+
+  function formField(model, labelName, inputType, inputFunction) {
+    const inputValue = model[inputType];
+    return div({ className: "mh2 pa2" }, [
+      label({ className: "pr2" }, labelName),
+      input({ oninput: inputFunction, className: "br5", value: inputValue })
+    ]);
+  }
+
+  function buttonGroup(model) {
+    return div([
       button(
         {
           onclick: () => dispatch(toggleFormMsg(false)),
-          className: "pa2 dim mh2 white bg-red bn br2"
+          className: "ma2 pa2 white dim bn bg-red br5"
         },
-        "cancel"
+        "Cancel"
+      ),
+      button(
+        {
+          onclick: () => {
+            dispatch(saveMealMsg);
+          },
+          className: "ma2 pa2 white dim bn bg-green br5"
+        },
+        "Save"
       )
-    ])
-  ]);
-}
-
-function formButtonLogic(model, dispatch) {
-  const { showForm } = model;
-  if (showForm) {
-    return mealForm(model, dispatch);
+    ]);
   }
-  return addMealButton(model, dispatch);
-}
 
-function addMealButton(model, dispatch) {
-  return button(
-    {
-      onclick: () => dispatch(toggleFormMsg(true)),
-      className: "f3 white bg-blue br1 pa2 bn dim"
-    },
-    "Add Meal"
-  );
-}
+  function mealForm(model, dispatch) {
+    return div([
+      formField(model, "Meal:", "description", e =>
+        dispatch(mealInputMsg(e.target.value))
+      ),
+      formField(model, "Calories:", "calories", e =>
+        dispatch(caloriesInputMsg(e.target.value))
+      )
+    ]);
+  }
 
-function seeModel(model) {
-  return pre(JSON.stringify(model, null, 2));
-}
+  function addMealButton(model, dispatch) {
+    return button(
+      {
+        onclick: () => dispatch(toggleFormMsg(true)),
+        className: "f3 br5 pa2 dim bg-blue bn white"
+      },
+      "Add Meal"
+    );
+  }
 
-const tableHeader = thead(tr([th("Meals"), th("Calories")]));
+  function showFormLogic(model, dispatch) {
+    if (model.showForm) {
+      return div([mealForm(model, dispatch), buttonGroup(model, dispatch)]);
+    }
+    return addMealButton(model, dispatch);
+  }
 
-function mealRow(model, dispatch) {
-  const meals = R.map(meal =>
-    tr([
-      td(meal.description),
-      td({}, meal.calories),
-      td([
-        a(
-          {
-            onclick: e => {
-              e.preventDefault();
-              dispatch(editMealMsg(meal.id));
+  //table
+  const tableHeader = tr([th("Meals"), th("Calories")]);
+
+  function mealRows() {
+    const meals = R.map(meal => {
+      return tr([
+        td(meal.description),
+        td({}, meal.calories),
+        td([
+          a(
+            {
+              onclick: () => dispatch(editMealMsg(meal)),
+              className: "ph2 link underline-hover red"
             },
-            href: "#",
-            className: "pr1 link underline-hover red"
-          },
-          "edit"
-        ),
-        a(
-          {
-            onclick: e => {
-              e.preventDefault();
-              dispatch(deleteMealMsg(meal.id));
+            "edit"
+          ),
+          a(
+            {
+              onclick: () => dispatch(deleteMealMsg(meal.id)),
+              className: "ph2 link underline-hover red"
             },
-            href: "#",
-            className: "pr1 link underline-hover red"
-          },
-          "delete"
-        )
-      ])
-    ])
-  )(model.meals);
-  return meals;
-}
+            "delete"
+          )
+        ])
+      ]);
+    }, model.meals);
 
-function mealTotal(model) {
-  const total = R.pipe(R.map(i => i.calories), R.sum)(model.meals);
-  return tr([td("Total"), td({}, total)]);
-}
+    return meals;
+  }
 
-function mealTable(model, dispatch) {
-  return table([
-    tableHeader,
-    tbody([mealRow(model, dispatch), mealTotal(model)])
-  ]);
-}
+  function mealsTotal() {
+    const total = R.pipe(R.map(meal => meal.calories), R.sum)(model.meals);
+    return tr([td("Total"), td({}, total)]);
+  }
 
-export default function view(model, dispatch) {
-  return div([
-    header,
-    formButtonLogic(model, dispatch),
-    mealTable(model, dispatch)
-  ]);
+  mealsTotal();
+
+  //table output
+  function showTable() {
+    if (model.meals.length > 0) {
+      return mealsTable();
+    }
+    return p({ className: "i" }, "No meals to display...");
+  }
+
+  function mealsTable() {
+    return table([tableHeader, mealRows(), mealsTotal()]);
+  }
+
+  function output(model) {
+    return div([Header, showFormLogic(model, dispatch), showTable()]);
+  }
+
+  return output(model);
 }
